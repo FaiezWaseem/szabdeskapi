@@ -1,7 +1,9 @@
 import fetch from 'node-fetch';
+import { URLSearchParams } from 'url'
 import * as cheerio from 'cheerio';
 import express from 'express';
 import cors from 'cors'
+import fs from 'fs/promises'
 const app = express()
 
 
@@ -92,38 +94,64 @@ class api {
             const coursename = row.find('td:nth-child(2)').text();
             const classWith = row.find('td:nth-child(3)').text();
             const outlineHref = row.find('td:nth-child(4) a').attr('href');
-            this.parsejs(outlineHref)
-            data.push({
-                coursename,
-                classWith,
-                outlineHref
-            });
+            if (outlineHref) {
+                const jsCode = outlineHref;
+
+                // Extract the values using regular expressions
+                const regex = /'([^']*)'/g;
+                const values = [];
+
+                let match;
+                while ((match = regex.exec(jsCode)) !== null) {
+                    values.push(match[1]);
+                }
+
+                console.log(values);
+                data.push({
+                    coursename,
+                    classWith,
+                    data: {
+                        txtFac: values[1],
+                        txtCou: values[4],
+                        txtSem: values[2],
+                        txtSec: values[3]
+                    }
+                });
+            }
+
         });
 
         return data;
 
     }
+    async getCourseAttendence(course) {
+        const encodedParams = new URLSearchParams();
+        encodedParams.set('txtCou', course.txtCou);
+        encodedParams.set('txtSem', course.txtSem);
+        encodedParams.set('txtSec', course.txtSec);
+        encodedParams.set('txtFac', course.txtFac);
 
-    parsejs(str) {
-        if (str) {
-            const pattern = /javascript:chkSubmitFrm\('([^']*)','([^']*)','([^']*)','([^']*)','([^']*)'\)/;
-            const matches = str.match(pattern);
-            if (matches) {
-                const parameter1 = matches[1];
-                const parameter2 = matches[2];
-                const parameter3 = matches[3];
-                const parameter4 = matches[4];
+        const html = await this.post(this.url + 'Student/QryCourseAttendance.asp', encodedParams);
+        const $ = cheerio.load(html);
+        const lectures = [];
 
-                console.log("Parameter 1:", parameter1);
-                console.log("Parameter 2:", parameter2);
-                console.log("Parameter 3:", parameter3);
-                console.log("Parameter 4:", parameter4);
-            } else {
-                console.log("No match found.");
+        $('table.textColor tr').each((index, element) => {
+            if (index > 1) {
+                const tds = $(element).find('td');
+                const lectureNumber = $(tds[0]).text().trim();
+                const lectureDate = $(tds[1]).text().trim();
+                const attendanceStatus = $(tds[2]).text().trim();
+                if (lectureNumber.length > 0 && lectureDate.length > 0 && attendanceStatus.length > 0) {
+                    lectures.push({
+                        number: lectureNumber,
+                        date: lectureDate,
+                        attendance: attendanceStatus
+                    });
+                }
             }
-        }
+        });
+        return lectures
     }
-
     async get(url) {
         if (this.cookie) {
             let options = {
@@ -141,6 +169,25 @@ class api {
             return html;
         } else {
             throw new Error('No Cookie is Set, Please Set Cookie first!!');
+        }
+    }
+    async post(url, encodedParams) {
+        if (this.cookie) {
+            let options = {
+                method: 'POST',
+                headers: {
+                    Accept: '*/*',
+                    'User-Agent': 'Thunder Client (https://www.thunderclient.com)',
+                    cookie: this.cookie,
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: encodedParams
+            };
+            const res = await fetch(url, options);
+            const html = res.text()
+            return html;
+        } else {
+            throw new Error('No Cookie is Set, Please Set Cookie first!!');
             return 'No Cookie is Set, Please Set Cookie first!!'
         }
     }
@@ -149,6 +196,19 @@ class api {
 app.use(cors())
 app.use(express.json())
 const _api = new api();
+
+app.get('/', (req, res) => {
+    res.send(`<div>
+    <h1>Server is Working</h1>
+    <p>Send Request To Server on These Paths</p>
+     <ul>
+     <li>/profile</li>
+     <li>/courses</li>
+     <li>/courses/all</li>
+     <li>/result</li>
+     </ul>
+    </div>`)
+})
 
 app.get('/profile', async function (req, res) {
     _api.setCookie(req.query.cookie);
@@ -170,6 +230,17 @@ app.get('/result', async function (req, res) {
     const profile = await _api.getResult()
     res.json(profile)
 })
+app.get('/attendence', async function (req, res) {
+    _api.setCookie(req.query.cookie);
+    const attendence = await _api.getCourseAttendence({
+        "txtFac": req.query.txtFac,
+        "txtCou": req.query.txtCou,
+        "txtSem": req.query.txtSem,
+        "txtSec": req.query.txtSec
+    })
+    res.json(attendence)
+})
+
 
 app.listen(3000)
 
