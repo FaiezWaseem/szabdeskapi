@@ -8,16 +8,26 @@ https://ruby-courageous-boa.cyclic.app/
 
 ## Methods
 
- GET /profile   - returns Student Name and Profile Image
+ GET /profile   <br/>
+ - returns Student Name and Profile Image
 
- GET /courses   - returns Current Semester Courses
+ GET /courses   <br/>
+ - returns Current Semester Courses
  
- GET /courses/all  - returns all courses taken so far
+ GET /courses/all  <br/>
+ - returns all courses taken so far
  
- GET /result  - returns current cgpa and Provisional Transcript CGPA
+ GET /result  <br/>
+  - returns current cgpa and Provisional Transcript CGPA
 
- GET /attendence - returns an array of Object { date : 'LEC DATE' , number : 'LEC NUMBER' , attendence : 'STATUS'  }
+ GET /course/attendence <br/>
+ - returns an array of Object { date : 'LEC DATE' , number : 'LEC NUMBER' , attendence : 'STATUS'  }
 
+ GET /course/recap <br/>
+  - returns an Object
+ 
+ GET /semester/result <br/>
+  - returns an JSON
 
  ### Example 
 
@@ -27,14 +37,16 @@ https://ruby-courageous-boa.cyclic.app/
  https://ruby-courageous-boa.cyclic.app/profile?cookie=YOUR_ACCOUNT_COOKIE
 
 
-#### /attendence path
-Pass the Cookie along with course detail
-{
+#### /course/attendence & /course/recap
+Pass the Params Cookie along with course detail
+
+```php
+        "cookie" : string
         "txtFac": string,
         "txtCou": string,
         "txtSem": string,
         "txtSec": string
-}
+```
 
 
 ```js
@@ -51,4 +63,12 @@ let response = await fetch("/attendence?cookie=YOUR_COOKIE_HERE&txtFac=AsimRiaz&
 
 let data = await response.json();
 console.log(data);
+```
+
+GET /semester/result
+params 
+```php
+        "cookie" : string
+        "end_point": string || 'StdViewSemesterResult.asp?sid=9xxxxx',
+        "semester": string || '1-Fall++2020',
 ```

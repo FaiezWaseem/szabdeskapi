@@ -50,6 +50,16 @@ class api {
         const $ = cheerio.load(html);
         let currentCGPA = '';
         let transcriptCGPA = '';
+        const form = $('form[name="StdViewSemesterResult"]');
+        const form_url = form.attr('action');
+        const select = form.find('select[name="cboSemester"]');
+        const options = select.find('option');
+
+        const selectValues = options.map((index, option) => ({
+            value: $(option).attr('value'),
+            text: $(option).text().trim()
+        })).get();
+
         $('table').each((index, element) => {
             const rowData = $(element).find('td').text();
             if (rowData) {
@@ -71,6 +81,8 @@ class api {
         return {
             currentCGPA,
             transcriptCGPA,
+            dropDown: selectValues,
+            postURL: form_url
         }
     }
     async getProfile() {
@@ -152,6 +164,71 @@ class api {
         });
         return lectures
     }
+    async getCourseRecap(course) {
+        const encodedParams = new URLSearchParams();
+        encodedParams.set('txtCou', course.txtCou);
+        encodedParams.set('txtSem', course.txtSem);
+        encodedParams.set('txtSec', course.txtSec);
+        encodedParams.set('txtFac', course.txtFac);
+
+        const html = await this.post(this.url + 'Student/QryCourseRecapSheet.asp', encodedParams);
+        const $ = cheerio.load(html);
+        const table = $('table.textColor');
+        const rows = table.find('tr');
+        const data = [];
+        const student = {};
+        let isRow = false;
+        rows.each((index, row) => {
+            const rowData = $(row).find('td, th').map((index, cell) => $(cell).text().trim()).get();
+            if (rowData[0] === 'Student') {
+                const _std = rowData[1].split('-');
+                student.name = _std[0];
+                student.regno = _std[1];
+                student.section = rowData[3];
+                student.semester = rowData[5];
+            }
+            if (isRow && rowData.length == 3) {
+                data.push({
+                    label: rowData[0],
+                    maxMarks: rowData[1],
+                    obtainedMarks: rowData[2],
+                });
+            }
+            if (rowData[0] === 'Marks Head') {
+                isRow = true;
+            }
+        });
+        console.log(data)
+        return {
+            student,
+            data
+        };
+    }
+    async getSemesterResult(input) {
+        const encodedParams = new URLSearchParams();
+        encodedParams.set('cboSemester', input.semester);
+        encodedParams.set('cmdSubmit', 'Submit');
+        const html = await this.post(this.url +"Student/"+ input.end_point, encodedParams)
+        const $ = cheerio.load(html);
+        const table = $('table.textcolor');
+        const rows = table.find('tr.plo_rows');
+        const courses = []
+
+        rows.each((index, row) => {
+            const courseName = $(row).find('td:nth-child(1)').text().trim();
+            const creditHours = $(row).find('td:nth-child(2)').text().trim();
+            const grade = $(row).find('td:nth-child(3)').text().trim();
+            const gradePoints = $(row).find('td:nth-child(4)').text().trim();
+
+            courses.push({
+                courseName,
+                creditHours,
+                grade,
+                gradePoints
+            })
+        });
+        return courses;
+    }
     async get(url) {
         if (this.cookie) {
             let options = {
@@ -184,11 +261,10 @@ class api {
                 body: encodedParams
             };
             const res = await fetch(url, options);
-            const html = res.text()
+            const html = await res.text()
             return html;
         } else {
             throw new Error('No Cookie is Set, Please Set Cookie first!!');
-            return 'No Cookie is Set, Please Set Cookie first!!'
         }
     }
 }
@@ -230,7 +306,7 @@ app.get('/result', async function (req, res) {
     const profile = await _api.getResult()
     res.json(profile)
 })
-app.get('/attendence', async function (req, res) {
+app.get('/course/attendence', async function (req, res) {
     _api.setCookie(req.query.cookie);
     const attendence = await _api.getCourseAttendence({
         "txtFac": req.query.txtFac,
@@ -239,6 +315,24 @@ app.get('/attendence', async function (req, res) {
         "txtSec": req.query.txtSec
     })
     res.json(attendence)
+})
+app.get('/course/recap', async function (req, res) {
+    _api.setCookie(req.query.cookie);
+    const recap = await _api.getCourseRecap({
+        "txtFac": req.query.txtFac,
+        "txtCou": req.query.txtCou,
+        "txtSem": req.query.txtSem,
+        "txtSec": req.query.txtSec
+    })
+    res.json(recap)
+})
+app.get('/semester/result', async (req, res) => {
+    _api.setCookie(req.query.cookie);
+    const result = await _api.getSemesterResult({
+        end_point: req.query.end_point,
+        semester: req.query.semester
+    })
+    res.json(result)
 })
 
 
