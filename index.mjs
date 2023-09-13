@@ -1,9 +1,12 @@
-import fetch from 'node-fetch';
+import fetch  from 'node-fetch';
 import { URLSearchParams } from 'url'
 import * as cheerio from 'cheerio';
 import express from 'express';
 import cors from 'cors'
 import fs from 'fs/promises'
+
+
+
 const app = express()
 
 
@@ -208,7 +211,7 @@ class api {
         const encodedParams = new URLSearchParams();
         encodedParams.set('cboSemester', input.semester);
         encodedParams.set('cmdSubmit', 'Submit');
-        const html = await this.post(this.url +"Student/"+ input.end_point, encodedParams)
+        const html = await this.post(this.url + "Student/" + input.end_point, encodedParams)
         const $ = cheerio.load(html);
         const table = $('table.textcolor');
         const rows = table.find('tr.plo_rows');
@@ -242,6 +245,7 @@ class api {
                 }
             };
             const req = await fetch(url, options)
+            console.log(req.headers)
             const html = await req.text();
             return html;
         } else {
@@ -261,6 +265,7 @@ class api {
                 body: encodedParams
             };
             const res = await fetch(url, options);
+            console.log(res.headers)
             const html = await res.text()
             return html;
         } else {
@@ -282,6 +287,9 @@ app.get('/', (req, res) => {
      <li>/courses</li>
      <li>/courses/all</li>
      <li>/result</li>
+     <li>/course/attendence</li>
+     <li>/course/recap</li>
+     <li>/semester/result</li>
      </ul>
     </div>`)
 })
@@ -335,7 +343,22 @@ app.get('/semester/result', async (req, res) => {
     res.json(result)
 })
 
+// not working ...
+app.get('/login', async (req, res) => {
+    console.log(req.headers.cookie)
+    _api.setCookie('xxxxx')
+    const encodedParams = new URLSearchParams();
+    encodedParams.set('value', 1);
+    encodedParams.set('0.1622431', req.query.id);
+    encodedParams.set('0.3195873', req.query.password);
+    encodedParams.set('0.7522786', 1);
+    encodedParams.set('login', 'Login');
+    const response = await _api.post("https://fallzabdesk.szabist.edu.pk/VerifyLogin.asp?sid=125363428", form)
+    await fs.writeFile('out.html' , response , 'utf-8')
+    res.json({
+        token : req.headers?.cookie
+    })
+})
+
 
 app.listen(3000)
-
-
