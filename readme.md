@@ -5,6 +5,8 @@
 ## test server
 https://ruby-courageous-boa.cyclic.app/
 
+http://192.210.174.131:3000/
+
 
 ## Methods
 
